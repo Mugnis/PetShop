@@ -190,9 +190,9 @@ func TestCreateProduct_Success(t *testing.T) {
 	handler := New(slog.Default(), ProductCreatingMock)
 	handler.CreateProduct(w, req)
 
-	// Ожидаем HTTP 200
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
+	// Ожидаем HTTP 201
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", w.Code)
 	}
 
 	var response map[string]interface{}
