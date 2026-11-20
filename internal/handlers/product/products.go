@@ -83,7 +83,7 @@ func (h *Handler) GetProductById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, err := strconv.Atoi(idStr)
-	if err != nil {
+	if err != nil || id <= 0 {
 		log.Error("invalid id format", slog.Any("error", err), slog.String("id", idStr))
 		w.WriteHeader(http.StatusBadRequest)
 		render.JSON(w, r, map[string]string{
@@ -154,7 +154,7 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if product.Price < 0 {
+	if product.Price <= 0 {
 		log.Error("product price is negative", slog.Float64("price", product.Price))
 		w.WriteHeader(http.StatusBadRequest)
 		render.JSON(w, r, map[string]string{
@@ -194,6 +194,7 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Возвращаем созданный продукт с его ID
 	product.ID = productID
+	w.WriteHeader(http.StatusCreated)
 	render.JSON(w, r, map[string]interface{}{
 		"status":  "Product created successfully",
 		"id":      productID,
@@ -236,16 +237,12 @@ func (h *Handler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Удаляем продукт
 	if err := h.storage.DeleteProduct(r.Context(), id); err != nil {
-		// Проверяем, является ли ошибка "не найдено" с помощью strings.Contains
-		if strings.Contains(strings.ToLower(err.Error()), "not found") ||
-			strings.Contains(strings.ToLower(err.Error()), "no rows") ||
-			strings.Contains(strings.ToLower(err.Error()), "rows affected: 0") {
-			log.Warn("product not found for deletion", slog.Int("id", id))
-			w.WriteHeader(http.StatusNotFound)
-			render.JSON(w, r, map[string]interface{}{
+		if errors.Is(err, postgres.ErrNotFound) {
+			log.Warn("product not found", slog.Int("id", id))
+			render.Status(r, http.StatusNotFound)
+			render.JSON(w, r, map[string]string{
 				"error":   "Not found",
-				"message": fmt.Sprintf("Product with ID %d does not exist", id),
-				"id":      id,
+				"message": fmt.Sprintf("Product with ID %d not found", id),
 			})
 			return
 		}

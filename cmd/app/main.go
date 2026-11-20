@@ -4,6 +4,7 @@ import (
 	"context"
 	"go-pet-shop/internal/config"
 	"go-pet-shop/internal/handlers"
+	"go-pet-shop/internal/handlers/order"
 	"go-pet-shop/internal/handlers/product"
 	"go-pet-shop/internal/handlers/user"
 	"go-pet-shop/internal/lib/logger"
@@ -54,6 +55,7 @@ func main() {
 	// Handlers
 	productHandler := product.New(log, storage)
 	userHandler := user.New(log, storage)
+	orderHandler := order.New(log, storage)
 	router.Get("/health", handlers.StatusHandler)
 
 	router.Get("/products", productHandler.GetAllProducts)
@@ -65,6 +67,11 @@ func main() {
 	router.Get("/users", userHandler.GetAllUsers)
 	router.Get("/users/by-email", userHandler.GetUserByEmail)
 	router.Post("/users", userHandler.CreateUser)
+
+	router.Get("/orders/{id}", orderHandler.GetOrder)
+	router.Get("/users/{email}/orders", orderHandler.GetUserOrders)
+	router.Post("/orders", orderHandler.CreateOrder)
+	router.Post("/orders/{id}/items", orderHandler.AddItemToOrder)
 
 	// Settings and started server
 	srv := &http.Server{
