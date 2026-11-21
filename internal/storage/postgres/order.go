@@ -117,7 +117,9 @@ func (s *Storage) PlaceOrder(ctx context.Context, userEmail string, items []mode
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", fn, err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	var userID int
 	err = tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, userEmail).Scan(&userID)
