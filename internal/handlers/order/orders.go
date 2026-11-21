@@ -24,6 +24,7 @@ type Orders interface {
 	GetOrdersByEmail(ctx context.Context, email string) ([]models.Order, error)
 	GetOrderItemsByOrderId(ctx context.Context, orderId int) ([]models.OrderItem, error)
 	PlaceOrder(ctx context.Context, userEmail string, items []models.OrderItem) (int, error)
+	GetUserOrderHistory(ctx context.Context, email string) ([]models.OrderDetail, error)
 }
 
 type Handler struct {
@@ -407,4 +408,39 @@ func (h *Handler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		"status": "Order created successfully",
 		"id":     orderId,
 	})
+}
+
+func (h *Handler) GetUserOrderHistory(w http.ResponseWriter, r *http.Request) {
+	const fn = "handlers.orders.GetUserOrderHistory"
+	log := h.log.With(
+		slog.String("fn", fn),
+		slog.String("request_id", middleware.GetReqID(r.Context())),
+	)
+
+	email := chi.URLParam(r, "email")
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	addr, err := mail.ParseAddress(email)
+	if err != nil || addr.Address != email {
+		log.Error("email is invalid")
+		w.WriteHeader(http.StatusBadRequest)
+		render.JSON(w, r, map[string]string{
+			"error":   "Bad request",
+			"message": "Email must be valid",
+		})
+		return
+	}
+
+	ordersDetail, err := h.storage.GetUserOrderHistory(r.Context(), email)
+	if err != nil {
+		log.Error("failed to get order history", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		render.JSON(w, r, map[string]string{
+			"error":   "Internal server error",
+			"message": "Failed to get orders",
+		})
+		return
+	}
+
+	render.JSON(w, r, ordersDetail)
 }

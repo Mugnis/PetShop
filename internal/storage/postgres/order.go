@@ -110,6 +110,51 @@ func (s *Storage) GetOrderItemsByOrderId(ctx context.Context, orderId int) ([]mo
 	return orderItems, nil
 }
 
+func (s *Storage) GetUserOrderHistory(ctx context.Context, email string) ([]models.OrderDetail, error) {
+	const fn = "storage.postgres.order.GetUserOrderHistory"
+
+	ordersDetail := make([]models.OrderDetail, 0)
+
+	rows, err := s.db.Query(ctx, `
+		SELECT o.id, o.user_id, o.total_price, o.created_at, COALESCE(t.status, 'no_payment')
+		FROM orders o
+		JOIN users u ON o.user_id = u.id
+		LEFT JOIN transactions t ON o.id = t.order_id
+		WHERE u.email = $1
+		ORDER BY o.created_at DESC
+	`, email)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", fn, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var orderDetail models.OrderDetail
+		if err := rows.Scan(
+			&orderDetail.ID,
+			&orderDetail.UserID,
+			&orderDetail.TotalPrice,
+			&orderDetail.CreatedAt,
+			&orderDetail.Status,
+		); err != nil {
+			return nil, fmt.Errorf("%s: %w", fn, err)
+		}
+
+		orderDetail.Items, err = s.GetOrderItemsByOrderId(ctx, orderDetail.ID)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", fn, err)
+		}
+
+		ordersDetail = append(ordersDetail, orderDetail)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", fn, err)
+	}
+
+	return ordersDetail, nil
+}
+
 func (s *Storage) PlaceOrder(ctx context.Context, userEmail string, items []models.OrderItem) (int, error) {
 	const fn = "storage.postgres.order.PlaceOrder"
 
@@ -117,7 +162,9 @@ func (s *Storage) PlaceOrder(ctx context.Context, userEmail string, items []mode
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", fn, err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	var userID int
 	err = tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, userEmail).Scan(&userID)

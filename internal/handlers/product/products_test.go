@@ -488,3 +488,66 @@ func TestDeleteProduct_Fail(t *testing.T) {
 		t.Errorf("unexpected error: %v", response["status"])
 	}
 }
+
+// =======================
+// Get Popular Products
+// =======================
+
+func TestGetPopularProducts_Success(t *testing.T) {
+	PopularProductsGetter := mocks.NewProducts(t)
+
+	popularProducts := []models.PopularProduct{
+		{
+			ID:         1,
+			Name:       "name",
+			Price:      1,
+			TotalSales: 1,
+		},
+		{
+			ID:         2,
+			Name:       "name",
+			Price:      2,
+			TotalSales: 2,
+		},
+	}
+
+	PopularProductsGetter.On("GetPopularProducts", mock.Anything).
+		Return(popularProducts, nil).
+		Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/products/popular", nil)
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), PopularProductsGetter)
+	handler.GetPopularProducts(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var gotPopularProducts []models.PopularProduct
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &gotPopularProducts))
+	require.Equal(t, popularProducts, gotPopularProducts)
+}
+
+func TestGetPopularProducts_Error(t *testing.T) {
+	PopularProductsGetter := mocks.NewProducts(t)
+
+	PopularProductsGetter.On("GetPopularProducts", mock.Anything).
+		Return(nil, errors.New("DB Error")).
+		Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/products/popular", nil)
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), PopularProductsGetter)
+	handler.GetPopularProducts(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Internal server error", response.Error)
+	require.Equal(t, "Failed to get popular products", response.Message)
+}

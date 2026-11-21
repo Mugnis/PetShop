@@ -29,6 +29,22 @@ type OrderItem struct {
 	Quantity  int
 }
 
+type OrderDetail struct {
+	ID         int
+	UserID     int
+	TotalPrice float64
+	CreatedAt  time.Time
+	Status     string
+	Items      []OrderItem
+}
+
+type PopularProduct struct {
+	ID         int
+	Name       string
+	Price      float64
+	TotalSales int
+}
+
 type Transaction struct {
 	Id        int
 	OrderID   int
@@ -40,8 +56,8 @@ type Transaction struct {
 type TransactionStatus string
 
 const (
-    TransactionStatusPending  TransactionStatus = "pending"
-    TransactionStatusSuccess  TransactionStatus = "success"
-    TransactionStatusFailed   TransactionStatus = "failed"
-    TransactionStatusRefunded TransactionStatus = "refunded"
+	TransactionStatusPending  TransactionStatus = "pending"
+	TransactionStatusSuccess  TransactionStatus = "success"
+	TransactionStatusFailed   TransactionStatus = "failed"
+	TransactionStatusRefunded TransactionStatus = "refunded"
 )

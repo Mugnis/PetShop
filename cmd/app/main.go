@@ -60,6 +60,7 @@ func main() {
 
 	router.Get("/products", productHandler.GetAllProducts)
 	router.Get("/products/{id}", productHandler.GetProductById)
+	router.Get("/products/popular", productHandler.GetPopularProducts)
 	router.Post("/products", productHandler.CreateProduct)
 	router.Delete("/products/{id}", productHandler.DeleteProduct)
 	router.Put("/products/{id}", productHandler.UpdateProduct)
@@ -70,6 +71,7 @@ func main() {
 
 	router.Get("/orders/{id}", orderHandler.GetOrder)
 	router.Get("/users/{email}/orders", orderHandler.GetUserOrders)
+	router.Get("/users/{email}/history", orderHandler.GetUserOrderHistory)
 	router.Post("/orders", orderHandler.CreateOrder)
 	router.Post("/orders/{id}/items", orderHandler.AddItemToOrder)
 	router.Post("/checkout", orderHandler.PlaceOrder)

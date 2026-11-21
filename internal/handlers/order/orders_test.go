@@ -922,3 +922,115 @@ func TestPlaceOrder_Error(t *testing.T) {
 	require.Equal(t, "Internal server error", response.Error)
 	require.Equal(t, "Failed to place order", response.Message)
 }
+
+// =======================
+// GetUserOrderHistory
+// =======================
+
+func TestGetUserOrderHistory_Success(t *testing.T) {
+	UserOrderHistoryGetter := mocks.NewOrders(t)
+
+	orderHistory := []models.OrderDetail{
+		{
+			ID:         1,
+			UserID:     1,
+			TotalPrice: 500,
+			CreatedAt:  time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC),
+			Status:     string(models.TransactionStatusSuccess),
+			Items: []models.OrderItem{
+				{
+					ID:        1,
+					OrderID:   1,
+					ProductID: 1,
+					Quantity:  2,
+				},
+				{
+					ID:        2,
+					OrderID:   1,
+					ProductID: 2,
+					Quantity:  1,
+				},
+			},
+		},
+		{
+			ID:         2,
+			UserID:     1,
+			TotalPrice: 300,
+			CreatedAt:  time.Date(2026, 11, 20, 15, 30, 0, 0, time.UTC),
+			Status:     "no_payment",
+			Items:      []models.OrderItem{},
+		},
+	}
+
+	UserOrderHistoryGetter.On("GetUserOrderHistory", mock.Anything, "someone@example.com").
+		Return(orderHistory, nil).
+		Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/users/someone@example.com/history", nil)
+	w := httptest.NewRecorder()
+
+	router := chi.NewRouter()
+	handler := New(slog.Default(), UserOrderHistoryGetter)
+
+	router.Get("/users/{email}/history", handler.GetUserOrderHistory)
+
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var gotOrderHistory []models.OrderDetail
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &gotOrderHistory))
+	require.Equal(t, orderHistory, gotOrderHistory)
+}
+
+func TestGetUserOrderHistory_InvalidEmail(t *testing.T) {
+	UserOrderHistoryGetter := mocks.NewOrders(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/someoneexample.com/history", nil)
+	w := httptest.NewRecorder()
+
+	router := chi.NewRouter()
+	handler := New(slog.Default(), UserOrderHistoryGetter)
+
+	router.Get("/users/{email}/history", handler.GetUserOrderHistory)
+
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Bad request", response.Error)
+	require.Equal(t, "Email must be valid", response.Message)
+}
+
+func TestGetUserOrderHistory_Error(t *testing.T) {
+	UserOrderHistoryGetter := mocks.NewOrders(t)
+
+	UserOrderHistoryGetter.On("GetUserOrderHistory", mock.Anything, "someone@example.com").
+		Return(nil, errors.New("DB Error")).
+		Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/users/someone@example.com/history", nil)
+	w := httptest.NewRecorder()
+
+	router := chi.NewRouter()
+	handler := New(slog.Default(), UserOrderHistoryGetter)
+
+	router.Get("/users/{email}/history", handler.GetUserOrderHistory)
+
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Internal server error", response.Error)
+	require.Equal(t, "Failed to get orders", response.Message)
+}
