@@ -12,6 +12,7 @@ import (
 var (
 	ErrNotFound     = errors.New("not found")
 	ErrInvalidInput = errors.New("invalid input")
+	ErrOutOfStock   = errors.New("insufficient product stock")
 )
 
 // ❗ Памятка - Контекст не должен создаваться через context.Background() внутри методов.

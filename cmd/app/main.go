@@ -72,6 +72,7 @@ func main() {
 	router.Get("/users/{email}/orders", orderHandler.GetUserOrders)
 	router.Post("/orders", orderHandler.CreateOrder)
 	router.Post("/orders/{id}/items", orderHandler.AddItemToOrder)
+	router.Post("/checkout", orderHandler.PlaceOrder)
 
 	// Settings and started server
 	srv := &http.Server{

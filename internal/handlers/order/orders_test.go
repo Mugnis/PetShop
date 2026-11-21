@@ -599,3 +599,326 @@ func TestGetUserOrders_Error(t *testing.T) {
 	require.Equal(t, "Internal server error", response.Error)
 	require.Equal(t, "Failed to get orders", response.Message)
 }
+
+// =======================
+// Place Order
+// =======================
+
+func TestPlaceOrder_Success(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	items := []models.OrderItem{
+		{
+			ProductID: 1,
+			Quantity:  1,
+		},
+		{
+			ProductID: 2,
+			Quantity:  2,
+		},
+	}
+
+	body := `{
+		"email": "someone@example.com",
+		"order_items": [
+			{
+				"ProductID": 1,
+				"Quantity": 1
+			},
+			{
+				"ProductID": 2,
+				"Quantity": 2
+			}
+		]
+	}`
+
+	OrderPlacerMock.On("PlaceOrder", mock.Anything, "someone@example.com", items).
+		Return(1, nil).
+		Once()
+
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	var response struct {
+		Status string `json:"status"`
+		ID     int    `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Order created successfully", response.Status)
+	require.Equal(t, 1, response.ID)
+}
+
+func TestPlaceOrder_InvalidJSON(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	body := `{
+		"email":.com",
+		"ordr_items": 
+				"Product: 
+				"Quntty: 
+			},
+			
+				"roductID": 2,
+				Quantity": 2
+			}
+		
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Bad request", response.Error)
+	require.Equal(t, "Invalid JSON payload", response.Message)
+}
+func TestPlaceOrder_InvalidEmail(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	body := `{
+		"email": "someonexamplecom",
+		"order_items": [
+			{
+				"ProductID": 1,
+				"Quantity": 1
+			},
+			{
+				"ProductID": 2,
+				"Quantity": 2
+			}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Bad request", response.Error)
+	require.Equal(t, "Email must be valid", response.Message)
+}
+func TestPlaceOrder_EmptyItems(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	body := `{
+		"email": "someone@example.com",
+		"order_items": [
+		]
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Bad request", response.Error)
+	require.Equal(t, "Order items cannot be empty", response.Message)
+}
+func TestPlaceOrder_InvalidItem(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	body := `{
+		"email": "someone@example.com",
+		"order_items": [
+			{
+				"ProductID": 0,
+				"Quantity": 1
+			},
+			{
+				"ProductID": 2,
+				"Quantity": 2
+			}
+		]
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Bad request", response.Error)
+	require.Equal(t, "Product ID and quantity must be positive", response.Message)
+}
+
+func TestPlaceOrder_UserNotFound(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	items := []models.OrderItem{
+		{
+			ProductID: 1,
+			Quantity:  1,
+		},
+		{
+			ProductID: 2,
+			Quantity:  2,
+		},
+	}
+
+	body := `{
+		"email": "someone@example.com",
+		"order_items": [
+			{
+				"ProductID": 1,
+				"Quantity": 1
+			},
+			{
+				"ProductID": 2,
+				"Quantity": 2
+			}
+		]
+	}`
+
+	OrderPlacerMock.On("PlaceOrder", mock.Anything, "someone@example.com", items).
+		Return(0, postgres.ErrNotFound).
+		Once()
+
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Not found", response.Error)
+	require.Equal(t, "User not found", response.Message)
+}
+
+func TestPlaceOrder_OutOfStock(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	items := []models.OrderItem{
+		{
+			ProductID: 1,
+			Quantity:  1,
+		},
+		{
+			ProductID: 2,
+			Quantity:  2,
+		},
+	}
+
+	body := `{
+		"email": "someone@example.com",
+		"order_items": [
+			{
+				"ProductID": 1,
+				"Quantity": 1
+			},
+			{
+				"ProductID": 2,
+				"Quantity": 2
+			}
+		]
+	}`
+
+	OrderPlacerMock.On("PlaceOrder", mock.Anything, "someone@example.com", items).
+		Return(0, postgres.ErrOutOfStock).
+		Once()
+
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusConflict, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Conflict", response.Error)
+	require.Equal(t, "Insufficient product stock", response.Message)
+}
+
+func TestPlaceOrder_Error(t *testing.T) {
+	OrderPlacerMock := mocks.NewOrders(t)
+
+	items := []models.OrderItem{
+		{
+			ProductID: 1,
+			Quantity:  1,
+		},
+		{
+			ProductID: 2,
+			Quantity:  2,
+		},
+	}
+
+	body := `{
+		"email": "someone@example.com",
+		"order_items": [
+			{
+				"ProductID": 1,
+				"Quantity": 1
+			},
+			{
+				"ProductID": 2,
+				"Quantity": 2
+			}
+		]
+	}`
+
+	OrderPlacerMock.On("PlaceOrder", mock.Anything, "someone@example.com", items).
+		Return(0, errors.New("DB Error")).
+		Once()
+
+	req := httptest.NewRequest(http.MethodPost, "/checkout", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderPlacerMock)
+	handler.PlaceOrder(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Internal server error", response.Error)
+	require.Equal(t, "Failed to place order", response.Message)
+}

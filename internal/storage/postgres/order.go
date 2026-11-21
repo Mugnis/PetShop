@@ -35,7 +35,7 @@ func (s *Storage) AddItemToOrder(ctx context.Context, o models.OrderItem) (int, 
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", fn, err)
 	}
-	
+
 	return id, nil
 }
 
@@ -108,4 +108,77 @@ func (s *Storage) GetOrderItemsByOrderId(ctx context.Context, orderId int) ([]mo
 	}
 
 	return orderItems, nil
+}
+
+func (s *Storage) PlaceOrder(ctx context.Context, userEmail string, items []models.OrderItem) (int, error) {
+	const fn = "storage.postgres.order.PlaceOrder"
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", fn, err)
+	}
+	defer tx.Rollback(ctx)
+
+	var userID int
+	err = tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, userEmail).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("%s: %w", fn, ErrNotFound)
+		}
+		return 0, fmt.Errorf("%s: %w", fn, err)
+	}
+
+	var totalPrice float64
+	for _, item := range items {
+		var price float64
+		err := tx.QueryRow(ctx,
+			`UPDATE products 
+			 SET stock = stock - $1 
+			 WHERE id = $2 AND stock >= $1 
+			 RETURNING price`,
+			item.Quantity, item.ProductID,
+		).Scan(&price)
+
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return 0, fmt.Errorf("%s: product %d: %w", fn, item.ProductID, ErrOutOfStock)
+			}
+			return 0, fmt.Errorf("%s: %w", fn, err)
+		}
+
+		totalPrice += price * float64(item.Quantity)
+	}
+
+	var orderID int
+	err = tx.QueryRow(ctx,
+		`INSERT INTO orders (user_id, total_price) VALUES ($1, $2) RETURNING id`,
+		userID, totalPrice,
+	).Scan(&orderID)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", fn, err)
+	}
+
+	for _, item := range items {
+		_, err := tx.Exec(ctx,
+			`INSERT INTO order_items (order_id, product_id, quantity) VALUES ($1, $2, $3)`,
+			orderID, item.ProductID, item.Quantity,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", fn, err)
+		}
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO transactions (order_id, amount, status) VALUES ($1, $2, $3)`,
+		orderID, totalPrice, models.TransactionStatusPending,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", fn, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("%s: %w", fn, err)
+	}
+
+	return orderID, nil
 }

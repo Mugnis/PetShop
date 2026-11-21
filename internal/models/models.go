@@ -36,3 +36,12 @@ type Transaction struct {
 	Status    string
 	CreatedAt time.Time
 }
+
+type TransactionStatus string
+
+const (
+    TransactionStatusPending  TransactionStatus = "pending"
+    TransactionStatusSuccess  TransactionStatus = "success"
+    TransactionStatusFailed   TransactionStatus = "failed"
+    TransactionStatusRefunded TransactionStatus = "refunded"
+)
