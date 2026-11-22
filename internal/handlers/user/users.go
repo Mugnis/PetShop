@@ -78,6 +78,16 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := h.storage.CreateUser(r.Context(), user)
 	if err != nil {
+		if errors.Is(err, postgres.ErrAlreadyExists) {
+			log.Warn("user already exists", slog.String("email", user.Email))
+			w.WriteHeader(http.StatusConflict)
+			render.JSON(w, r, map[string]string{
+				"error":   "Conflict",
+				"message": "User with this email already exists",
+			})
+			return
+		}
+
 		log.Error("failed to create user", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 		render.JSON(w, r, map[string]string{

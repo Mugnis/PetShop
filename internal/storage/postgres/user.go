@@ -7,6 +7,7 @@ import (
 	"go-pet-shop/internal/models"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (s *Storage) CreateUser(ctx context.Context, u models.User) (int, error) {
@@ -18,6 +19,10 @@ func (s *Storage) CreateUser(ctx context.Context, u models.User) (int, error) {
 		u.Name, u.Email).Scan(&id)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return 0, fmt.Errorf("%s: %w", fn, ErrAlreadyExists)
+		}
 		return 0, fmt.Errorf("%s: %w", fn, err)
 	}
 
