@@ -36,3 +36,5 @@ CREATE TABLE transactions (
     status TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_transactions_order_id ON transactions(order_id);
