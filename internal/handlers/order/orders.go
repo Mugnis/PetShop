@@ -79,6 +79,15 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	order, err := h.storage.CreateOrder(r.Context(), order)
 	if err != nil {
+		if errors.Is(err, postgres.ErrNotFound) {
+			log.Warn("user not found", slog.Int("user_id", order.UserID))
+			w.WriteHeader(http.StatusNotFound)
+			render.JSON(w, r, map[string]string{
+				"error":   "Not found",
+				"message": "User not found",
+			})
+			return
+		}
 		log.Error("failed to create order", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 		render.JSON(w, r, map[string]string{
@@ -177,6 +186,16 @@ func (h *Handler) AddItemToOrder(w http.ResponseWriter, r *http.Request) {
 	itemID, err := h.storage.AddItemToOrder(r.Context(), orderItem)
 
 	if err != nil {
+		if errors.Is(err, postgres.ErrNotFound) {
+			log.Warn("order or product not found", slog.Int("order_id", orderItem.OrderID), slog.Int("product_id", orderItem.ProductID))
+			w.WriteHeader(http.StatusNotFound)
+			render.JSON(w, r, map[string]string{
+				"error":   "Not found",
+				"message": "Order or product not found",
+			})
+			return
+		}
+
 		log.Error("failed to create order_item", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 		render.JSON(w, r, map[string]string{
