@@ -64,7 +64,7 @@ func (s *Storage) GetAllUsers(ctx context.Context) ([]models.User, error) {
 		users = append(users, u)
 	}
 
-	if rows.Err() != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("%s: %w", fn, err)
 	}
 
