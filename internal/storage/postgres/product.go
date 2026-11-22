@@ -12,6 +12,7 @@ import (
 var (
 	ErrNotFound     = errors.New("not found")
 	ErrInvalidInput = errors.New("invalid input")
+	ErrAlreadyExists = errors.New("already exists")
 )
 
 // ❗ Памятка - Контекст не должен создаваться через context.Background() внутри методов.

@@ -242,6 +242,28 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 	}
 }
 
+func TestCreateUser_Conflict(t *testing.T) {
+	UserCreatorMock := mocks.NewUsers(t)
+
+	UserCreatorMock.On("CreateUser", mock.Anything, models.User{Name: "Mugnis", Email: "someone@example.com"}).
+		Return(0, postgres.ErrAlreadyExists).
+		Once()
+
+	// Создаем запрос
+	body := `{"name": "Mugnis", "email": "someone@Example.com"}`
+
+	req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(body))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), UserCreatorMock)
+	handler.CreateUser(w, req)
+
+	// Ожидаем HTTP 409
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d", w.Code)
+	}
+}
+
 func TestCreateUser_Error(t *testing.T) {
 	UserCreatorMock := mocks.NewUsers(t)
 
