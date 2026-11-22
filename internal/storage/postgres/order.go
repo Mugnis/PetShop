@@ -7,6 +7,7 @@ import (
 	"go-pet-shop/internal/models"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (s *Storage) CreateOrder(ctx context.Context, o models.Order) (models.Order, error) {
@@ -18,6 +19,10 @@ func (s *Storage) CreateOrder(ctx context.Context, o models.Order) (models.Order
 		Scan(&o.ID, &o.CreatedAt)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return models.Order{}, fmt.Errorf("%s: %w", fn, ErrNotFound)
+		}
 		return models.Order{}, fmt.Errorf("%s: %w", fn, err)
 	}
 
@@ -33,9 +38,13 @@ func (s *Storage) AddItemToOrder(ctx context.Context, o models.OrderItem) (int, 
 		o.OrderID, o.ProductID, o.Quantity).Scan(&id)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return 0, fmt.Errorf("%s: %w", fn, ErrNotFound)
+		}
 		return 0, fmt.Errorf("%s: %w", fn, err)
 	}
-	
+
 	return id, nil
 }
 

@@ -128,6 +128,37 @@ func TestCreateOrder_InvalidTotalPrice(t *testing.T) {
 	require.Equal(t, "Total price cannot be negative", response.Message)
 }
 
+func TestCreateOrder_NotFound(t *testing.T) {
+	OrderCreatingMock := mocks.NewOrders(t)
+
+	inputOrder := models.Order{
+		UserID:     1,
+		TotalPrice: 100,
+	}
+
+	OrderCreatingMock.On("CreateOrder", mock.Anything, inputOrder).
+		Return(models.Order{}, postgres.ErrNotFound).
+		Once()
+
+	requestBody := `{"userId": 1, "totalPrice": 100}`
+
+	req := httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(requestBody))
+	w := httptest.NewRecorder()
+
+	handler := New(slog.Default(), OrderCreatingMock)
+	handler.CreateOrder(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Not found", response.Error)
+	require.Equal(t, "User not found", response.Message)
+}
+
 func TestCreateOrder_Error(t *testing.T) {
 	OrderCreatingMock := mocks.NewOrders(t)
 
@@ -302,6 +333,42 @@ func TestAddItemToOrder_InvalidQuantity(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
 	require.Equal(t, "Bad request", response.Error)
 	require.Equal(t, "Quantity cannot be negative", response.Message)
+}
+
+func TestAddItemToOrder_NotFound(t *testing.T) {
+	ItemAdderMock := mocks.NewOrders(t)
+
+	OrderItem := models.OrderItem{
+		OrderID:   1,
+		ProductID: 1,
+		Quantity:  1,
+	}
+
+	ItemAdderMock.On("AddItemToOrder", mock.Anything, OrderItem).
+		Return(0, postgres.ErrNotFound).
+		Once()
+
+	requestBody := `{"orderID": 1, "productID": 1, "quantity": 1}`
+
+	req := httptest.NewRequest(http.MethodPost, "/orders/1/items", strings.NewReader(requestBody))
+	w := httptest.NewRecorder()
+
+	router := chi.NewRouter()
+	handler := New(slog.Default(), ItemAdderMock)
+
+	router.Post("/orders/{id}/items", handler.AddItemToOrder)
+
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+
+	var response struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "Not found", response.Error)
+	require.Equal(t, "Order or product not found", response.Message)
 }
 
 func TestAddItemToOrder_Error(t *testing.T) {
