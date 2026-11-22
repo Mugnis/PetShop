@@ -49,7 +49,6 @@ func main() {
 	// Middlewares
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
 	router.Use(logger.CustomLogger(log))
 
 	// Handlers
@@ -66,7 +65,7 @@ func main() {
 	router.Put("/products/{id}", productHandler.UpdateProduct)
 
 	router.Get("/users", userHandler.GetAllUsers)
-	router.Get("/users/by-email", userHandler.GetUserByEmail)
+	router.Get("/users/{email}", userHandler.GetUserByEmail)
 	router.Post("/users", userHandler.CreateUser)
 
 	router.Get("/orders/{id}", orderHandler.GetOrder)
