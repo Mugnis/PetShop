@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -352,9 +351,7 @@ func (h *Handler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	// Обновляем продукт
 	if err := h.storage.UpdateProduct(r.Context(), product); err != nil {
 		// Проверяем, является ли ошибка "не найдено" с помощью strings.Contains
-		if strings.Contains(strings.ToLower(err.Error()), "not found") ||
-			strings.Contains(strings.ToLower(err.Error()), "no rows") ||
-			strings.Contains(strings.ToLower(err.Error()), "rows affected: 0") {
+		if errors.Is(err, postgres.ErrNotFound) {
 			log.Warn("product not found for update", slog.Int("id", id))
 			w.WriteHeader(http.StatusNotFound)
 			render.JSON(w, r, map[string]interface{}{

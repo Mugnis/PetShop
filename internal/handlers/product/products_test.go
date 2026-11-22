@@ -348,6 +348,46 @@ func TestUpdateProduct_BadRequest(t *testing.T) {
 	}
 }
 
+func TestUpdateProduct_NotFound(t *testing.T) {
+	ProductCreatingMock := mocks.NewProducts(t)
+
+	product := &models.Product{}
+	product.ID = 1
+	product.Name = "Корм для собак"
+	product.Price = 499.99
+	product.Stock = 10
+
+	ProductCreatingMock.On("UpdateProduct", mock.Anything, *product).
+		Return(postgres.ErrNotFound).
+		Once()
+
+	requestBody := `{"id": 10, "name": "Корм для собак", "price": 499.99, "stock": 10}`
+
+	req := httptest.NewRequest(http.MethodPost, "/products/1", strings.NewReader(requestBody))
+	w := httptest.NewRecorder()
+
+	router := chi.NewRouter()
+	handler := New(slog.Default(), ProductCreatingMock)
+
+	router.Post("/products/{id}", handler.UpdateProduct)
+
+	router.ServeHTTP(w, req)
+
+	// Ожидаем HTTP 404
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response body: %v", err)
+	}
+
+	if response["error"] != "Not found" {
+		t.Errorf("unexpected error: %v", response["status"])
+	}
+}
+
 func TestUpdateProduct_Fail(t *testing.T) {
 	ProductCreatingMock := mocks.NewProducts(t)
 
