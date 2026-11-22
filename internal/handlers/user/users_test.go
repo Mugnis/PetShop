@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -72,11 +73,13 @@ func TestGetUserByEmail_Success(t *testing.T) {
 		Once()
 
 	// Создаем запрос
-	req := httptest.NewRequest(http.MethodGet, "/users/by-email?email=Someone@Example.com", nil)
-	w := httptest.NewRecorder()
-
+	router := chi.NewRouter()
 	handler := New(slog.Default(), UserGetterMock)
-	handler.GetUserByEmail(w, req)
+	router.Get("/users/{email}", handler.GetUserByEmail)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/Someone@Example.com", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
 
 	// Ожидаем HTTP 200
 	if w.Code != http.StatusOK {
@@ -92,11 +95,14 @@ func TestGetUserByEmail_EmptyEmail(t *testing.T) {
 	UserGetterMock := mocks.NewUsers(t)
 
 	// Создаем запрос
-	req := httptest.NewRequest(http.MethodGet, "/users/by-email", nil)
-	w := httptest.NewRecorder()
-
+	router := chi.NewRouter()
 	handler := New(slog.Default(), UserGetterMock)
-	handler.GetUserByEmail(w, req)
+	router.Get("/users/{email}", handler.GetUserByEmail)
+	router.Get("/users", handler.GetUserByEmail)
+
+	req := httptest.NewRequest(http.MethodGet, "/users", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
 
 	// Ожидаем HTTP 400
 	if w.Code != http.StatusBadRequest {
@@ -112,11 +118,13 @@ func TestGetUserByEmail_NotFound(t *testing.T) {
 		Once()
 
 	// Создаем запрос
-	req := httptest.NewRequest(http.MethodGet, "/users/by-email?email=Someone@Example.com", nil)
-	w := httptest.NewRecorder()
-
+	router := chi.NewRouter()
 	handler := New(slog.Default(), UserGetterMock)
-	handler.GetUserByEmail(w, req)
+	router.Get("/users/{email}", handler.GetUserByEmail)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/Someone@Example.com", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
 
 	// Ожидаем HTTP 404
 	if w.Code != http.StatusNotFound {
@@ -132,11 +140,13 @@ func TestGetUserByEmail_Error(t *testing.T) {
 		Once()
 
 	// Создаем запрос
-	req := httptest.NewRequest(http.MethodGet, "/users/by-email?email=Someone@Example.com", nil)
-	w := httptest.NewRecorder()
-
+	router := chi.NewRouter()
 	handler := New(slog.Default(), UserGetterMock)
-	handler.GetUserByEmail(w, req)
+	router.Get("/users/{email}", handler.GetUserByEmail)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/Someone@Example.com", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
 
 	// Ожидаем HTTP 500
 	if w.Code != http.StatusInternalServerError {

@@ -10,6 +10,7 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 )
@@ -109,7 +110,7 @@ func (h *Handler) GetUserByEmail(w http.ResponseWriter, r *http.Request) {
 		slog.String("request_id", middleware.GetReqID(r.Context())),
 	)
 
-	email := r.URL.Query().Get("email")
+	email := chi.URLParam(r, "email")
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	if email == "" {
