@@ -53,8 +53,8 @@ go-pet-shop/
 ## 🛠 Как запустить
 
 1. Клонировать репозиторий:
-   `git clone https://github.com/Mugnis/PetShopTests.git`
-   `cd go-pet-shop`
+   `git clone https://github.com/Mugnis/PetShop.git`
+   `cd PetShop`
 
 2. Настроить окружение: скопировать `.env.example` в `.env` и поправить логин, пароль и имя базы.
 `cp .env.example .env`
